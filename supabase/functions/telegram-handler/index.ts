@@ -2,28 +2,45 @@ console.log(`Function "telegram-bot" up and running!`)
 
 import { Bot, webhookCallback } from 'https://deno.land/x/grammy@v1.22.4/mod.ts'
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const supabase = createClient(Deno.env.get('SUPABASE_URL') || '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '')
-
-let initialized = false
+import { supermemo, SuperMemoItem, SuperMemoGrade } from "https://deno.land/x/supermemo@2.0.17/mod.ts";
+import { Entry } from './model.ts';
 
 const bot = new Bot(Deno.env.get('TELEGRAM_BOT_TOKEN') || '')
+const supabase = createClient(Deno.env.get('SUPABASE_URL') || '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '')
 
 bot.command('ping', (ctx) => ctx.reply(`Pong! ${new Date()} ${Date.now()}`))
 
 bot.reaction('❤', async (ctx) => {
   console.log('Reaction to message', ctx)
-  const { error } = await supabase
+
+  const { data, error } = await supabase
     .from('entries')
-    .update({ reviewed_at: new Date() })
+    .select()
     .match({ message_id: ctx.messageReaction?.message_id })
 
   if (error) {
-    console.log('Failed to update entry', error)
+    console.log('Failed to fetch entry', error)
+    return ctx.reply('Failed to fetch entry')
+  }
+
+  if (!data || data.length === 0) {
+    return ctx.reply('No entry found')
+  }
+
+  const entry = data[0] as Entry
+  const { interval, repetition, efactor } = supermemo(entry, 5)
+
+  const { error: updateError } = await supabase
+    .from('entries')
+    .update({ interval, repetition, efactor, due_date: nextDueDate(interval) })
+    .match({ id: entry.id })
+
+  if (updateError) {
+    console.log('Failed to update entry', updateError)
     return ctx.reply('Failed to update entry')
   }
 
-  return ctx.react('👍')
+  return ctx.react('👏')
 })
 
 bot.command('review', async (ctx) => {
@@ -36,8 +53,7 @@ bot.command('review', async (ctx) => {
   const { data, error } = await supabase
     .from('entries')
     .select()
-    .or('reviewed_at.is.null,reviewed_at.lte.' + daysAgo(1).toISOString())
-    .order('reviewed_at', { nullsFirst: true })
+    .lte('due_date', new Date().toISOString())
     .limit(limit)
 
   if (error) {
@@ -55,18 +71,17 @@ bot.command('review', async (ctx) => {
       .from('entries')
       .update({ message_id: reply.message_id })
       .match({ id: entry.id })
-      return { reply, error }
+    return { reply, error }
   }))
 
   const replies = updates
     .filter(({ error }) => Boolean(error))
     .map(({ reply, error }) => {
       console.log('Failed to update entry', error)
-      bot.api.setMessageReaction(reply.chat.id, reply.message_id, ['👎' as any])
-      return ctx.react('👎', { chat_id: reply.chat.id, message_id: reply.message_id } as any)
+      return ctx.react('🤡', { chat_id: reply.chat.id, message_id: reply.message_id } as any)
     })
 
-    return Promise.all(replies)
+  return Promise.all(replies)
 })
 
 bot.on('message', async (ctx) => {
@@ -75,17 +90,18 @@ bot.on('message', async (ctx) => {
   const { error } = await supabase
     .from('entries')
     .insert({ data: ctx.message.text })
+
   if (error) {
     console.log(error)
-    ctx.reply('Failed to add entry')
-    return
+    return ctx.reply('Failed to add entry')
   }
 
-  ctx.react('👍')
+  return ctx.react('✍')
 })
 
 const handleUpdate = webhookCallback(bot, 'std/http')
 
+let initialized = false
 Deno.serve(async (req) => {
   try {
     if (!initialized) {
@@ -115,8 +131,8 @@ async function initialize() {
   ])
 }
 
-function daysAgo(n: number): Date {
+function nextDueDate(interval: number): Date {
   const d = new Date();
-  d.setDate(d.getDate() - n);
+  d.setDate(d.getDate() + interval);
   return d;
 }
