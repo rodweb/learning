@@ -9,6 +9,7 @@ const bot = new Bot(Deno.env.get('TELEGRAM_BOT_TOKEN') || '')
 const supabase = createClient<Database>(Deno.env.get('SUPABASE_URL') || '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '')
 
 bot.command('ping', (ctx) => ctx.reply(`Pong! ${new Date()} ${Date.now()}`))
+bot.command('start', (ctx) => ctx.reply('Welcome!'))
 
 bot.reaction('❤', async (ctx) => {
   console.log('Reaction to message', ctx)
@@ -86,7 +87,7 @@ bot.command('review', async (ctx) => {
   return Promise.all(replies)
 })
 
-bot.on('message', async (ctx) => {
+bot.on('message:text', async (ctx) => {
   console.log('Message', ctx)
 
   const { error } = await supabase
@@ -99,6 +100,10 @@ bot.on('message', async (ctx) => {
   }
 
   return ctx.react('✍')
+})
+
+bot.on('my_chat_member', (ctx) => {
+  console.log('Chat member', ctx)
 })
 
 const handleUpdate = webhookCallback(bot, 'std/http')
