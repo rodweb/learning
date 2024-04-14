@@ -21,6 +21,7 @@ export type Database = {
           message_id: number | null
           repetition: number
           updated_at: string
+          username: string
         }
         Insert: {
           chat_id: number
@@ -33,6 +34,7 @@ export type Database = {
           message_id?: number | null
           repetition?: number
           updated_at?: string
+          username: string
         }
         Update: {
           chat_id?: number
@@ -45,6 +47,7 @@ export type Database = {
           message_id?: number | null
           repetition?: number
           updated_at?: string
+          username?: string
         }
         Relationships: []
       }

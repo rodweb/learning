@@ -92,7 +92,7 @@ bot.on('message:text', async (ctx) => {
 
   const { error } = await supabase
     .from('entries')
-    .insert({ chat_id: ctx.chat.id, data: ctx.message.text || '' })
+    .insert({ chat_id: ctx.chat.id, username: ctx.message.from.username || '', data: ctx.message.text || '' })
 
   if (error) {
     console.log(error)
