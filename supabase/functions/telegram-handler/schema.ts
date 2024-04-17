@@ -9,45 +9,75 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      entries: {
+      flashcards: {
         Row: {
+          back: string | null
           chat_id: number
           created_at: string
-          data: string
           due_date: string
           efactor: number
+          front: string | null
           id: number
           interval: number
-          message_id: number | null
+          last_message_id: number | null
           repetition: number
           updated_at: string
           username: string
         }
         Insert: {
+          back?: string | null
           chat_id: number
           created_at?: string
-          data: string
           due_date?: string
           efactor?: number
+          front?: string | null
           id?: number
           interval?: number
-          message_id?: number | null
+          last_message_id?: number | null
           repetition?: number
           updated_at?: string
           username: string
         }
         Update: {
+          back?: string | null
           chat_id?: number
           created_at?: string
-          data?: string
           due_date?: string
           efactor?: number
+          front?: string | null
           id?: number
           interval?: number
-          message_id?: number | null
+          last_message_id?: number | null
           repetition?: number
           updated_at?: string
           username?: string
+        }
+        Relationships: []
+      }
+      interactions: {
+        Row: {
+          chat_id: number
+          created_at: string
+          id: number
+          message_id: number
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          id?: number
+          message_id: number
+          state: string
+          updated_at?: string
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          id?: number
+          message_id?: number
+          state?: string
+          updated_at?: string
         }
         Relationships: []
       }

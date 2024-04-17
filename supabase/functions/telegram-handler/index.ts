@@ -15,9 +15,9 @@ bot.reaction('❤', async (ctx) => {
   console.log('Reaction to message', ctx)
 
   const { data, error } = await supabase
-    .from('entries')
+    .from('flashcards')
     .select()
-    .match({ chat_id: ctx.chat.id, message_id: ctx.messageReaction?.message_id })
+    .match({ chat_id: ctx.chat.id, last_message_id: ctx.messageReaction?.message_id })
 
   if (error) {
     console.log('Failed to fetch entry', error)
@@ -32,7 +32,7 @@ bot.reaction('❤', async (ctx) => {
   const { interval, repetition, efactor } = supermemo(entry, 5)
 
   const { error: updateError } = await supabase
-    .from('entries')
+    .from('flashcards')
     .update({ interval, repetition, efactor, due_date: nextDueDate(interval) })
     .match({ id: entry.id })
 
@@ -44,18 +44,30 @@ bot.reaction('❤', async (ctx) => {
   return ctx.react('👏')
 })
 
+bot.command('flashcard', async (ctx) => {
+  const { error } = await supabase
+    .from('interactions')
+    .insert({ chat_id: ctx.chat.id, message_id: ctx.message?.message_id || 0, state: 'front' })
+  if (error) {
+    console.log('Failed to add interaction', error)
+    return ctx.reply('Failed to add interaction')
+  }
+  return ctx.reply('Please enter the front side of the flashcard')
+})
+
 bot.command('review', async (ctx) => {
   console.log('Review command', ctx)
-  let limit = 3
+  let limit = 10
   if (typeof ctx.match === 'string') {
     limit = parseInt(ctx.match, 10)
   }
 
   const { data, error } = await supabase
-    .from('entries')
+    .from('flashcards')
     .select()
     .match({ chat_id: ctx.chat.id })
     .lte('due_date', new Date().toISOString())
+    .not('front', 'is', null)
     .limit(limit)
 
   if (error) {
@@ -68,10 +80,10 @@ bot.command('review', async (ctx) => {
   }
 
   const updates = await Promise.all(data.map(async (entry) => {
-    const reply = await ctx.reply(entry.data)
+    const reply = await ctx.reply(entry.front || '')
     const { error } = await supabase
-      .from('entries')
-      .update({ message_id: reply.message_id })
+      .from('flashcards')
+      .update({ last_message_id: reply.message_id })
       .match({ id: entry.id })
     return { reply, error }
   }))
@@ -90,11 +102,60 @@ bot.command('review', async (ctx) => {
 bot.on('message:text', async (ctx) => {
   console.log('Message', ctx)
 
-  const { error } = await supabase
-    .from('entries')
+  const { data, error } = await supabase
+    .from('interactions')
+    .select()
+    .match({ chat_id: ctx.chat.id })
+  if (error) {
+    console.log('Failed to fetch interaction', error)
+    return ctx.reply('Failed to fetch interaction')
+  }
+  const interaction = data?.[0]
+  if (interaction?.state === 'front') {
+    const { error: updateError } = await supabase
+      .from('flashcards')
+      .insert({ chat_id: ctx.chat.id, last_message_id: interaction.message_id, username: ctx.message.from.username || '', front: ctx.message.text })
+    if (updateError) {
+      console.log('Failed to add entry', updateError)
+      return ctx.reply('Failed to add entry')
+    }
+    const { error: interactionUpdateError } = await supabase
+      .from('interactions')
+      .update({ state: 'back' })
+      .match({ chat_id: ctx.chat.id, message_id: interaction.message_id })
+    if (interactionUpdateError) {
+      console.log('Failed to update interaction', interactionUpdateError)
+      return ctx.reply('Failed to update interaction')
+    }
+    return ctx.reply('Please enter the back side of the flashcard')
+  }
+
+  if (interaction?.state === 'back') {
+    const { error: updateError } = await supabase
+      .from('flashcards')
+      .update({ back: ctx.message.text })
+      .match({ chat_id: ctx.chat.id, last_message_id: interaction.message_id })
+    if (updateError) {
+      console.log('Failed to update entry', updateError)
+      return ctx.reply('Failed to update entry')
+    }
+    const { error: deleteError } = await supabase
+      .from('interactions')
+      .delete()
+      .match({ chat_id: ctx.chat.id, message_id: interaction.message_id })
+    if (deleteError) {
+      console.log('Failed to delete interaction', deleteError)
+      return ctx.reply('Failed to delete interaction')
+    }
+
+    return ctx.reply('Flashcard added')
+  }
+
+  const { error: getError } = await supabase
+    .from('flashcards')
     .insert({ chat_id: ctx.chat.id, username: ctx.message.from.username || '', data: ctx.message.text || '' })
 
-  if (error) {
+  if (getError) {
     console.log(error)
     return ctx.reply('Failed to add entry')
   }
@@ -133,7 +194,8 @@ async function initialize() {
     bot.api.setWebhook(url, { allowed_updates: ['message', 'message_reaction'] }),
     bot.api.setMyCommands([
       { command: 'ping', description: 'Test the bot' },
-      { command: 'review', description: 'Review an entry' },
+      { command: 'review', description: 'Review due entries' },
+      { command: 'flashcard', description: 'Add a flashcard' },
     ]),
   ])
 }
