@@ -152,8 +152,16 @@ bot.on('message:text', async (ctx) => {
   }
 
   const { error: getError } = await supabase
-    .from('flashcards')
-    .insert({ chat_id: ctx.chat.id, username: ctx.message.from.username || '', data: ctx.message.text || '' })
+    .from('entries')
+    .insert({
+      chat_id: ctx.chat.id,
+      message_id: ctx.message.message_id,
+      username: ctx.message.from.username || '',
+      data: {
+        type: 'text',
+        text: ctx.message.text || '',
+      }
+    })
 
   if (getError) {
     console.log(error)
