@@ -99,6 +99,19 @@ bot.command('review', async (ctx) => {
   return Promise.all(replies)
 })
 
+bot.on('edited_message:text', async (ctx) => {
+  await Promise.all([
+    supabase
+      .from('entries')
+      .update({ data: { type: 'text', text: ctx.editedMessage?.text || '' } })
+      .match({ chat_id: ctx.chat.id, message_id: ctx.editedMessage?.message_id || 0 }),
+    supabase
+      .from('flashcards')
+      .update({ front: ctx.editedMessage?.text || '' })
+      .match({ chat_id: ctx.chat.id, last_message_id: ctx.editedMessage?.message_id || 0 }),
+  ])
+})
+
 bot.on('message:text', async (ctx) => {
   const { data, error } = await supabase
     .from('interactions')
