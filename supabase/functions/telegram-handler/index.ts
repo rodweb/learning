@@ -1,6 +1,6 @@
 console.log(`Function "telegram-bot" up and running!`)
 
-import { API_CONSTANTS, Bot, webhookCallback } from 'https://deno.land/x/grammy@v1.22.4/mod.ts'
+import { API_CONSTANTS, Bot, InlineKeyboard, webhookCallback } from 'https://deno.land/x/grammy@v1.22.4/mod.ts'
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.3";
 import { supermemo } from "https://deno.land/x/supermemo@2.0.17/mod.ts";
 import { Database } from './schema.ts'
@@ -80,7 +80,15 @@ bot.command('review', async (ctx) => {
   }
 
   const updates = await Promise.all(data.map(async (entry) => {
-    const reply = await ctx.reply(entry.front || '')
+    const keyboard = new InlineKeyboard()
+      .text('Nope', '1')
+      .text('Difficult', '2')
+      .text('Ok', '3')
+      .text('Easy', '4')
+      .text('EZ', "5")
+    const reply = await ctx.reply(entry.front || '', {
+      reply_markup: keyboard,
+    })
     const { error } = await supabase
       .from('flashcards')
       .update({ last_message_id: reply.message_id })
@@ -105,10 +113,7 @@ bot.on('edited_message:text', async (ctx) => {
       .from('entries')
       .update({ data: { type: 'text', text: ctx.editedMessage?.text || '' } })
       .match({ chat_id: ctx.chat.id, message_id: ctx.editedMessage?.message_id || 0 }),
-    supabase
-      .from('flashcards')
-      .update({ front: ctx.editedMessage?.text || '' })
-      .match({ chat_id: ctx.chat.id, message_id: ctx.editedMessage?.message_id || 0 }),
+    // TODO: Support flashcard updates
   ])
 })
 
