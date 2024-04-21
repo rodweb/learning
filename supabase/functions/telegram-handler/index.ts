@@ -9,6 +9,8 @@ import { debug } from './debug.ts';
 const bot = new Bot(Deno.env.get('TELEGRAM_BOT_TOKEN') || '')
 const supabase = createClient<Database>(Deno.env.get('SUPABASE_URL') || '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '')
 
+bot.use(debug(Deno.env.get('TELEGRAM_BOT_DEBUG_TOKEN') || ''))
+
 bot.command('ping', (ctx) => ctx.reply('Pong!'))
 bot.command('start', (ctx) => ctx.reply('Welcome!'))
 
@@ -198,10 +200,6 @@ async function initialize() {
       { command: 'flashcard', description: 'Add a flashcard' },
     ]),
   ]);
-  const token = Deno.env.get('TELEGRAM_BOT_DEBUG_TOKEN')
-  if (token) {
-    bot.use(debug(token))
-  }
 }
 
 function nextDueDate(interval: number): string {
