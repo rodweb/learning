@@ -108,7 +108,7 @@ bot.on('edited_message:text', async (ctx) => {
     supabase
       .from('flashcards')
       .update({ front: ctx.editedMessage?.text || '' })
-      .match({ chat_id: ctx.chat.id, last_message_id: ctx.editedMessage?.message_id || 0 }),
+      .match({ chat_id: ctx.chat.id, message_id: ctx.editedMessage?.message_id || 0 }),
   ])
 })
 
