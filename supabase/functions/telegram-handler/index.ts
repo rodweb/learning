@@ -4,14 +4,10 @@ import { API_CONSTANTS, Bot, webhookCallback } from 'https://deno.land/x/grammy@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.3";
 import { supermemo } from "https://deno.land/x/supermemo@2.0.17/mod.ts";
 import { Database } from './schema.ts'
+import { debug } from './debug.ts';
 
 const bot = new Bot(Deno.env.get('TELEGRAM_BOT_TOKEN') || '')
 const supabase = createClient<Database>(Deno.env.get('SUPABASE_URL') || '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '')
-
-bot.use((ctx, next) => {
-  console.log('Update', ctx)
-  return next()
-})
 
 bot.command('ping', (ctx) => ctx.reply('Pong!'))
 bot.command('start', (ctx) => ctx.reply('Welcome!'))
@@ -201,7 +197,11 @@ async function initialize() {
       { command: 'review', description: 'Review due entries' },
       { command: 'flashcard', description: 'Add a flashcard' },
     ]),
-  ])
+  ]);
+  const token = Deno.env.get('TELEGRAM_BOT_DEBUG_TOKEN')
+  if (token) {
+    bot.use(debug(token))
+  }
 }
 
 function nextDueDate(interval: number): string {
