@@ -7,7 +7,7 @@ export function debug(token: string): Middleware {
         console.log('Update', ctx)
         // Do not wait for the promise to resolve
         ctx.getChat()
-            .then(chat => bot.api.sendMessage(chat.id, ctx.toString()))
+            .then(chat => bot.api.sendMessage(chat.id, Deno.inspect(ctx)))
             .catch(console.error)
         return next()
     }
