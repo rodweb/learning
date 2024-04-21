@@ -1,6 +1,6 @@
 console.log(`Function "telegram-bot" up and running!`)
 
-import { Bot, webhookCallback } from 'https://deno.land/x/grammy@v1.22.4/mod.ts'
+import { API_CONSTANTS, Bot, webhookCallback } from 'https://deno.land/x/grammy@v1.22.4/mod.ts'
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.3";
 import { supermemo } from "https://deno.land/x/supermemo@2.0.17/mod.ts";
 import { Database } from './schema.ts'
@@ -8,12 +8,15 @@ import { Database } from './schema.ts'
 const bot = new Bot(Deno.env.get('TELEGRAM_BOT_TOKEN') || '')
 const supabase = createClient<Database>(Deno.env.get('SUPABASE_URL') || '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '')
 
-bot.command('ping', (ctx) => ctx.reply(`Pong! ${new Date()} ${Date.now()}`))
+bot.use((ctx, next) => {
+  console.log('Update', ctx)
+  return next()
+})
+
+bot.command('ping', (ctx) => ctx.reply('Pong!'))
 bot.command('start', (ctx) => ctx.reply('Welcome!'))
 
 bot.reaction('❤', async (ctx) => {
-  console.log('Reaction to message', ctx)
-
   const { data, error } = await supabase
     .from('flashcards')
     .select()
@@ -56,7 +59,6 @@ bot.command('flashcard', async (ctx) => {
 })
 
 bot.command('review', async (ctx) => {
-  console.log('Review command', ctx)
   let limit = 10
   if (typeof ctx.match === 'string') {
     limit = parseInt(ctx.match, 10)
@@ -100,8 +102,6 @@ bot.command('review', async (ctx) => {
 })
 
 bot.on('message:text', async (ctx) => {
-  console.log('Message', ctx)
-
   const { data, error } = await supabase
     .from('interactions')
     .select()
@@ -171,10 +171,6 @@ bot.on('message:text', async (ctx) => {
   return ctx.react('✍')
 })
 
-bot.on('my_chat_member', (ctx) => {
-  console.log('Chat member', ctx)
-})
-
 const handleUpdate = webhookCallback(bot, 'std/http')
 
 let initialized = false
@@ -199,7 +195,7 @@ Deno.serve(async (req) => {
 async function initialize() {
   const url = Deno.env.get('FUNCTION_URL') || ''
   await Promise.all([
-    bot.api.setWebhook(url, { allowed_updates: ['message', 'message_reaction'] }),
+    bot.api.setWebhook(url, { allowed_updates: API_CONSTANTS.ALL_UPDATE_TYPES }),
     bot.api.setMyCommands([
       { command: 'ping', description: 'Test the bot' },
       { command: 'review', description: 'Review due entries' },
