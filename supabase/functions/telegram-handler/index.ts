@@ -103,7 +103,7 @@ bot.on('callback_query', async (ctx) => {
     return ctx.reply('Failed to update entry')
   }
 
-  return ctx.react('👏')
+  return ctx.api.deleteMessage(ctx.callbackQuery?.message?.chat?.id || 0, ctx.callbackQuery?.message?.message_id || 0)
 })
 
 bot.on('edited_message:text', async (ctx) => {
