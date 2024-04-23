@@ -2,7 +2,7 @@ console.log(`Function "telegram-bot" up and running!`)
 
 import { API_CONSTANTS, Bot, InlineKeyboard, webhookCallback } from 'https://deno.land/x/grammy@v1.22.4/mod.ts'
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.42.3";
-import { supermemo } from "https://deno.land/x/supermemo@2.0.17/mod.ts";
+import { SuperMemoGrade, supermemo } from "https://deno.land/x/supermemo@2.0.17/mod.ts";
 import { Database } from './schema.ts'
 import { debug } from './debug.ts';
 
@@ -13,37 +13,6 @@ bot.use(debug(Deno.env.get('TELEGRAM_BOT_DEBUG_TOKEN') || ''))
 
 bot.command('ping', (ctx) => ctx.reply('Pong!'))
 bot.command('start', (ctx) => ctx.reply('Welcome!'))
-
-bot.reaction('❤', async (ctx) => {
-  const { data, error } = await supabase
-    .from('flashcards')
-    .select()
-    .match({ chat_id: ctx.chat.id, last_message_id: ctx.messageReaction?.message_id })
-
-  if (error) {
-    console.log('Failed to fetch entry', error)
-    return ctx.reply('Failed to fetch entry')
-  }
-
-  if (!data || data.length === 0) {
-    return ctx.reply('No entry found')
-  }
-
-  const entry = data[0]
-  const { interval, repetition, efactor } = supermemo(entry, 5)
-
-  const { error: updateError } = await supabase
-    .from('flashcards')
-    .update({ interval, repetition, efactor, due_date: nextDueDate(interval) })
-    .match({ id: entry.id })
-
-  if (updateError) {
-    console.log('Failed to update entry', updateError)
-    return ctx.reply('Failed to update entry')
-  }
-
-  return ctx.react('👏')
-})
 
 bot.command('flashcard', async (ctx) => {
   const { error } = await supabase
@@ -57,9 +26,11 @@ bot.command('flashcard', async (ctx) => {
 })
 
 bot.command('review', async (ctx) => {
-  let limit = 10
+  let limit = 10;
   if (typeof ctx.match === 'string') {
-    limit = parseInt(ctx.match, 10)
+    if (parseInt(ctx.match, 10) > 0) {
+      limit = parseInt(ctx.match, 10)
+    }
   }
 
   const { data, error } = await supabase
@@ -81,8 +52,8 @@ bot.command('review', async (ctx) => {
 
   const updates = await Promise.all(data.map(async (entry) => {
     const keyboard = new InlineKeyboard()
-      .text('Nope', '1')
-      .text('Difficult', '2')
+      .text('Nope', '0')
+      .text('Hard', '1')
       .text('Ok', '3')
       .text('Easy', '4')
       .text('EZ', "5")
@@ -105,6 +76,34 @@ bot.command('review', async (ctx) => {
     })
 
   return Promise.all(replies)
+})
+
+bot.on('callback_query', async (ctx) => {
+  const { data, error } = await supabase
+    .from('flashcards')
+    .select()
+    .match({ chat_id: ctx.callbackQuery?.message?.chat?.id || 0, last_message_id: ctx.callbackQuery?.message?.message_id || 0 })
+  if (error) {
+    console.log('Failed to fetch entry', error)
+    return ctx.reply('Failed to fetch entry')
+  }
+
+  const grade = parseInt(ctx.callbackQuery?.data || '0', 10) as SuperMemoGrade
+
+  const entry = data[0]
+  const { interval, repetition, efactor } = supermemo(entry, grade)
+
+  const { error: updateError } = await supabase
+    .from('flashcards')
+    .update({ interval, repetition, efactor, due_date: nextDueDate(interval) })
+    .match({ id: entry.id })
+
+  if (updateError) {
+    console.log('Failed to update entry', updateError)
+    return ctx.reply('Failed to update entry')
+  }
+
+  return ctx.react('👏')
 })
 
 bot.on('edited_message:text', async (ctx) => {
