@@ -57,6 +57,9 @@ bot.command('review', async (ctx) => {
       .text('Ok', '3')
       .text('Easy', '4')
       .text('EZ', "5")
+      .row()
+      .text('Back', 'back')
+      .text('Delete', 'delete')
     const reply = await ctx.reply(entry.front || '', {
       reply_markup: keyboard,
     })
@@ -79,6 +82,35 @@ bot.command('review', async (ctx) => {
 })
 
 bot.on('callback_query', async (ctx) => {
+  switch (ctx.callbackQuery?.data) {
+    case 'delete': {
+      const { error } = await supabase
+        .from('flashcards')
+        .delete()
+        .match({ chat_id: ctx.callbackQuery?.message?.chat?.id || 0, last_message_id: ctx.callbackQuery?.message?.message_id || 0 })
+      if (error) {
+        console.log('Failed to delete entry', error)
+        return ctx.reply('Failed to delete')
+      }
+      return ctx.api.deleteMessage(ctx.callbackQuery?.message?.chat?.id || 0, ctx.callbackQuery?.message?.message_id || 0)
+    }
+    case 'back': {
+      const { data, error } = await supabase
+        .from('flashcards')
+        .select()
+        .match({ chat_id: ctx.callbackQuery?.message?.chat?.id || 0, last_message_id: ctx.callbackQuery?.message?.message_id || 0 })
+      if (error) {
+        console.log('Failed to fetch entry', error)
+        return ctx.reply('Failed to fetch entry')
+      }
+      const entry = data[0]
+      return ctx.api.editMessageText(
+        ctx.callbackQuery?.message?.chat?.id || 0,
+        ctx.callbackQuery?.message?.message_id || 0,
+        entry.front + '\n' + entry.back || '')
+    }
+  }
+
   const { data, error } = await supabase
     .from('flashcards')
     .select()
